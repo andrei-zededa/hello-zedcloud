@@ -25,7 +25,7 @@ jobs:
       uses: pollenjp/setup-shellcheck@v1.0.2
 
     - name: Lint
-      run: make link
+      run: make lint
 
     - name: Build
       run: make build
