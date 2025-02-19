@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello EVE</title>
+    <style>
+        body {
+            background: url(Hello_EVE.png);
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-size: 100% 100%;
+            margin: 0; /* Remove default margin */
+        }
+        .link-container {
+            display: flex;
+            justify-content: flex-end;
+            gap: 20px; /* Adjust the spacing between the links */
+            margin: 20px; /* Adjust the top margin as needed */
+            font-family: 'Cinzel', sans-serif; /* Applying the font */
+        }
+        .bottom-left-container {
+            position: fixed;
+            bottom: 20px; /* Distance from the bottom */
+            left: 20px; /* Distance from the left */
+            font-family: 'Cinzel', sans-serif;
+            background-color: rgba(255, 255, 255, 0.8); /* Optional: semi-transparent background for readability */
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .bottom-left-container ul {
+            padding-left: 20px; /* Add padding to the list */
+            margin: 10px 0; /* Margin for the list */
+        }
+    </style>
+</head>
+<body>
+    <!-- Top right link container -->
+    <div class="link-container">
+        <a href="https://www.lfedge.org/projects/eve/">LF Edge EVE Project</a>
+        <a href="https://lf-edge.atlassian.net/wiki/spaces/EVE/overview">LF Edge EVE Wiki</a>
+        <a href="https://github.com/lf-edge/eve">LF Edge EVE on GitHub</a>
+        <a href="https://help.zededa.com/hc/en-us">ZEDEDA Help Center</a>
+        <a href="https://zededa.com/contact-us/">Contact ZEDEDA</a>
+    </div>
+
+    <!-- Bottom left content container -->
+    <div class="bottom-left-container">
+        <p>You might also want to check:</p>
+        <ul>
+            <li><a href="/_/logs">This web server's request logs</a></li>
+            <li><a href="/_/env">This web server's environment variables</a></li>
+        </ul>
+    </div>
+</body>
+</html>
