@@ -1,17 +1,20 @@
 name: Build container image and push to Dockerhub
 
 on:
+  workflow_run:
+    workflows: ["Go lint and build"]
+    types:
+      - completed
   push:
-    tags:
-      - 'v*'  # Triggers on tags starting with 'v' (e.g., v1.0.0).
-    branches:
-      - main  # Only consider tags on the main branch.
+    tags: [ 'v*' ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout repository
