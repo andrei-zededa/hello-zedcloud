@@ -16,6 +16,7 @@ jobs:
         with:
           name: dockerhub_latest_tag
           path: dockerhub_latest_tag
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Debug 1
         run: cat dockerhub_latest_tag
