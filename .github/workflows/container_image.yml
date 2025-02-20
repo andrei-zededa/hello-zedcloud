@@ -10,8 +10,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      TAG_IS_PUSHED: ${{ steps.final_step.outputs.TAG_IS_PUSHED }}
 
     steps:
       - name: Checkout repository
@@ -33,5 +31,13 @@ jobs:
               || ''
             }}
 
-      - id: final_step
-        run: echo "TAG_IS_PUSHED=${{ github.event_name != 'pull_request' && github.ref_name || '' }}" >> "$GITHUB_OUTPUT"
+      - name: Save the tag that was just pushed to Dockerhub
+        run: echo "${{ github.event_name != 'pull_request' && github.ref_name || '' }}" > dockerhub_latest_tag
+
+      - name: Upload dockerhub_latest_tag
+        uses: actions/upload-artifact@v4
+        with:
+          name: dockerhub_latest_tag
+          path: dockerhub_latest_tag
+          overwrite: true
+          retention-days: 1
