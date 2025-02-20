@@ -1,0 +1,16 @@
+name: After container image is pushed to Dockerhub
+
+on:
+  workflow_run:
+    workflows: ["Build container image and push to Dockerhub"]
+    types: [ "completed" ]
+
+jobs:
+  do_thing:
+    runs-on: ubuntu-latest
+
+    steps:
+      
+      - name: debug
+        run: echo "${{ github.event.workflow_run.conclusion }}"
+
