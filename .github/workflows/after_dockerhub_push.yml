@@ -11,6 +11,15 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      - name: debug
+      - name: Download dockerhub_latest_tag
+        uses: actions/download-artifact@v4
+        with:
+          name: dockerhub_latest_tag
+          path: dockerhub_latest_tag
+
+      - name: Debug 1
+        run: cat dockerhub_latest_tag
+
+      - name: Debug 2
         run: echo "${{ toJSON(github.event) }}"
 
