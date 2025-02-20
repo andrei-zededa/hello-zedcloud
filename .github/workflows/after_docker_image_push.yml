@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      
       - name: debug
-        run: echo "${{ github.event.workflow_run.conclusion }}"
+        run: echo "${{ github.event.workflow_run }}"
 
