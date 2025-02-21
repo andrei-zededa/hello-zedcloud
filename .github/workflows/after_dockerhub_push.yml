@@ -12,11 +12,11 @@ jobs:
 
     steps:
       - name: Download dockerhub_latest_tag
-        uses: actions/download-artifact@v4
+        uses: dawidd6/action-download-artifact@v8
         with:
           name: dockerhub_latest_tag
           path: dockerhub_latest_tag
-          run-id: ${{ github.event.workflow_run.id }}
+          run_id: ${{ github.event.workflow_run.id }}
 
       - name: Debug 1
         run: cat dockerhub_latest_tag
