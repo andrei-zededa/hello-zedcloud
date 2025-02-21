@@ -20,7 +20,7 @@ jobs:
           run_id: ${{ github.event.workflow_run.id }}
 
       - name: Debug 1
-        run: cat dockerhub_latest_tag
+        run: cat dockerhub_latest_tag/dockerhub_latest_tag
 
       - name: Debug 2
         run: echo "${{ toJSON(github.event) }}"
