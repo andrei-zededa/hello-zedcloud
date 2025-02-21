@@ -15,12 +15,12 @@ jobs:
         uses: dawidd6/action-download-artifact@v8
         with:
           github_token: ${{ secrets.GH_TOKEN }}
-          name: dockerhub_latest_tag
-          path: dockerhub_latest_tag
+          name: dockerhub_image_latest_tag
+          path: dockerhub_image_latest_tag
           run_id: ${{ github.event.workflow_run.id }}
 
       - name: Debug 1
-        run: cat dockerhub_latest_tag/dockerhub_latest_tag
+        run: cat dockerhub_image_latest_tag/dockerhub_image_latest_tag
 
       - name: Debug 2
         run: echo "${{ toJSON(github.event) }}"
