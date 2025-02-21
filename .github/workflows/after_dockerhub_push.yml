@@ -14,6 +14,7 @@ jobs:
       - name: Download dockerhub_latest_tag
         uses: dawidd6/action-download-artifact@v8
         with:
+          github_token: ${{ secrets.GH_TOKEN }}
           name: dockerhub_latest_tag
           path: dockerhub_latest_tag
           run_id: ${{ github.event.workflow_run.id }}
