@@ -389,8 +389,10 @@ func allocMemory(size uint64, delay time.Duration) {
 // uploadHandler is an HTTP middleware that accepts a multi-part file upload
 // and saves the uploaded file locally. Not very useful for the file upload
 // itself however it can be used to simulate traffic towards an edge-app instance
-// (similar to if the edge-app instance would do a download).
-func uploadHandler() http.Handler {
+// (similar to if the edge-app instance would do a download). If `uploadPath`
+// doesn't already exist it will be created, it can be e relative to the current
+// directory where the server was started.
+func uploadHandler(uploadPath string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Only allow the POST method for uploads.
 		if r.Method != http.MethodPost {
@@ -413,14 +415,17 @@ func uploadHandler() http.Handler {
 		defer file.Close()
 
 		// Create uploads directory if it doesn't exist.
-		uploadDir := "uploads"
+		uploadId := quickID(8)
+		uploadDir := filepath.Join(uploadPath, uploadId)
 		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
 			http.Error(w, "Error creating upload directory", http.StatusInternalServerError)
 			return
 		}
 
-		// Create a new file in the uploads directory.
-		dst := filepath.Join(uploadDir, handler.Filename)
+		// Create a new file. We base64 encode the filename received in the request
+		// to avoid any issues from untrusted user input.
+		dst := filepath.Join(uploadDir,
+			base64.StdEncoding.EncodeToString([]byte(handler.Filename)))
 		f, err := os.Create(dst)
 		if err != nil {
 			http.Error(w, "Error creating destination file", http.StatusInternalServerError)
@@ -429,14 +434,16 @@ func uploadHandler() http.Handler {
 		defer f.Close()
 
 		// Copy the uploaded file to the destination file.
-		if _, err := io.Copy(f, file); err != nil {
+		n, err := io.Copy(f, file)
+		if err != nil {
 			http.Error(w, "Error writing file", http.StatusInternalServerError)
 			return
 		}
 
 		// Send success response.
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Successfully uploaded file: %s", handler.Filename)
+		fmt.Fprintf(w, "Successfully uploaded file '%s' as '%s' (%d bytes / %s).",
+			handler.Filename, dst, n, humanize.Bytes(uint64(n)))
 	})
 }
 
@@ -480,16 +487,16 @@ func main() {
 
 	// Serve static files.
 	http.Handle("/", loggingMidd(logger, fs))
-	http.Handle("/echo", loggingMidd(logger, reqDump()))
-	http.Handle("/upload", loggingMidd(logger, uploadHandler()))
 
 	// Add HTTP handlers for the custom paths supported by the server.
 	http.Handle("/_/version", loggingMidd(logger, displayVer()))
 	http.Handle("/_/env", loggingMidd(logger, displayEnv()))
-	http.Handle("/_/stats", loggingMidd(logger, displayStats()))
 	http.Handle("/_/logs", loggingMidd(logger, displayLogs(t)))
 	http.Handle("/_/crash", loggingMidd(logger, shouldCrash()))
 	http.Handle("/_/alloc", loggingMidd(logger, allocMemoryHandler()))
+	http.Handle("/_/stats", loggingMidd(logger, displayStats()))
+	http.Handle("/_/echo", loggingMidd(logger, reqDump()))
+	http.Handle("/_/upload", loggingMidd(logger, uploadHandler("/tmp/hello_zedcloud_uploads")))
 
 	// Start the server with the specified port.
 	logger.Info("Starting server", "version", version, "address", *listen, "static_dir", *staticDir,
