@@ -21,6 +21,9 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Write the computed version (from the tag plus any newer commits) to it gets embedded into the binary 
+        run: ./misc/version_from_git_tags.bash > version
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
