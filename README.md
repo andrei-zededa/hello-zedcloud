@@ -57,6 +57,8 @@ be started with a *rough* bandwidth limit that will be applied globally (so
 concurrent requests will all share this bandwidth limit). This can be useful
 to simulate slow network connections, for example when this server is used as
 a local HTTP datastore to serve images to an EVE-OS instance. The default is
-`1GB/s` which should basically mean unlimited in most scenarios.
+`2GB/s` which should basically mean unlimited in most scenarios.
 
 # The Zedcloud deployment
+
+**TODO**, see `./zedcloud_deployment`.
