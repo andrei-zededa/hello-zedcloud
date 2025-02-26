@@ -25,7 +25,6 @@ variable "DOCKERHUB_IMAGE_NAME" {
 variable "DOCKERHUB_IMAGE_LATEST_TAG" {
   sensitive = false
   type      = string
-  default   = "v0.3.9"
 }
 
 variable "PROJECT_NAME" {

@@ -9,9 +9,14 @@ jobs:
   do_thing:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    env:
+      TF_VAR_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+      TF_VAR_DOCKERHUB_IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME }}
+      TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
+      TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
 
     steps:
-      - name: Download dockerhub_latest_tag
+      - name: Download dockerhub_latest_tag which contains the tag of the container image that was just built
         uses: dawidd6/action-download-artifact@v8
         with:
           github_token: ${{ secrets.GH_TOKEN }}
@@ -19,8 +24,9 @@ jobs:
           path: dockerhub_image_latest_tag
           run_id: ${{ github.event.workflow_run.id }}
 
-      - name: Debug 1
-        run: cat dockerhub_image_latest_tag/dockerhub_image_latest_tag
+      - id: dockerhub_image_latest_tag
+        name: Retrieve the tag of the container image  
+        run: echo "DOCKERHUB_IMAGE_LATEST_TAG=$(cat dockerhub_image_latest_tag/dockerhub_image_latest_tag)" >> $GITHUB_OUTPUT
 
         # TODO: This is needed only temporary, remove once a new release of
         # the provider is available from `zededa/terraform-provider/zedcloud`.
@@ -31,7 +37,7 @@ jobs:
           latest: true
           preRelease: true
           tag: 'v0.0.0-dev.fiximageupdate.1'
-          fileName: 'terraform-provider*.tar.gz'
+          fileName: 'terraform-provider-zedcloud*.tar.gz'
           tarBall: true
           out-file-path: './terraform_plugins/'
           extract: true
@@ -46,16 +52,12 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - id: init
-        run: |
-          pwd
-          ls -lsah
-          terraform init --upgrade -plugin-dir=./terraform_plugins/ -chdir=./zedcloud_deployment/
+        run: terraform -chdir=./zedcloud_deployment/ init -upgrade -plugin-dir=../terraform_plugins/
 
       - id: plan
-        run: |
-          pwd
-          ls -lsah
-          terraform plan -no-color -chdir=./zedcloud_deployment/
+        run: terraform -chdir=./zedcloud_deployment/ plan -no-color
+        env:
+          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
       
       - run: echo ${{ steps.plan.outputs.stdout }}
       - run: echo ${{ steps.plan.outputs.stderr }}
