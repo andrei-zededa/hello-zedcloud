@@ -27,7 +27,7 @@ jobs:
           run_id: ${{ github.event.workflow_run.id }}
 
       - id: dockerhub_image_latest_tag
-        name: Retrieve the tag of the container image  
+        name: Retrieve the tag of the container image
         run: echo "DOCKERHUB_IMAGE_LATEST_TAG=$(cat dockerhub_image_latest_tag/dockerhub_image_latest_tag)" >> $GITHUB_OUTPUT
 
         # TODO: This is needed only temporary, remove once a new release of
@@ -47,6 +47,16 @@ jobs:
       - name: Setup terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Download any previous terraform state
+        uses: badgerhobbs/terraform-state@v2
+        with:
+          operation: download
+          location: artifact
+          github_token: ${{ secrets.GH_TOKEN }}
+          encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
+        working-directory: ./zedcloud_deployment/
+        continue-on-error: true
+
       - id: tf_init
         run: terraform -chdir=./zedcloud_deployment/ init -upgrade -plugin-dir=../terraform_plugins/
 
@@ -56,16 +66,17 @@ jobs:
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
-      - run: echo ${{ steps.tf_plan.outputs.stdout }}
-      - run: echo ${{ steps.tf_plan.outputs.stderr }}
-      - run: echo ${{ steps.tf_plan.outputs.exitcode }}
-
       - id: tf_apply
         run: terraform -chdir=./zedcloud_deployment/ apply -no-color -auto-approve "$./{TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
         env:
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
-      - run: echo ${{ steps.tf_apply.outputs.stdout }}
-      - run: echo ${{ steps.tf_apply.outputs.stderr }}
-      - run: echo ${{ steps.tf_apply.outputs.exitcode }}
+      - name: Upload terraform state
+        uses: badgerhobbs/terraform-state@v2
+        with:
+          operation: download
+          location: artifact
+          github_token: ${{ secrets.GH_TOKEN }}
+          encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
+        working-directory: ./zedcloud_deployment/
