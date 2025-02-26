@@ -44,11 +44,17 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - id: init
-        run: terraform init --upgrade -plugin-dir=./terraform_plugins/
+        run: |
+          pwd
+          ls -lsah
+          terraform init --upgrade -plugin-dir=./terraform_plugins/
         working-directory: ./zedcloud_deployment/
 
       - id: plan
-        run: terraform plan -no-color
+        run: |
+          pwd
+          ls -lsah
+          terraform plan -no-color
         working-directory: ./zedcloud_deployment/
       
       - run: echo ${{ steps.plan.outputs.stdout }}
