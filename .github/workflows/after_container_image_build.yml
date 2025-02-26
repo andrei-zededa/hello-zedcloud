@@ -16,6 +16,9 @@ jobs:
       TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download dockerhub_latest_tag which contains the tag of the container image that was just built
         uses: dawidd6/action-download-artifact@v8
         with:
@@ -51,14 +54,14 @@ jobs:
       - name: Setup terraform
         uses: hashicorp/setup-terraform@v3
 
-      - id: init
+      - id: tf_init
         run: terraform -chdir=./zedcloud_deployment/ init -upgrade -plugin-dir=../terraform_plugins/
 
-      - id: plan
+      - id: tf_plan
         run: terraform -chdir=./zedcloud_deployment/ plan -no-color
         env:
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
       
-      - run: echo ${{ steps.plan.outputs.stdout }}
-      - run: echo ${{ steps.plan.outputs.stderr }}
-      - run: echo ${{ steps.plan.outputs.exitcode }}
+      - run: echo ${{ steps.tf_plan.outputs.stdout }}
+      - run: echo ${{ steps.tf_plan.outputs.stderr }}
+      - run: echo ${{ steps.tf_plan.outputs.exitcode }}
