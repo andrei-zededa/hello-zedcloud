@@ -67,7 +67,7 @@ jobs:
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
       - id: tf_apply
-        run: terraform -chdir=./zedcloud_deployment/ apply -no-color -auto-approve "$./{TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
+        run: terraform -chdir=./zedcloud_deployment/ apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
         env:
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
