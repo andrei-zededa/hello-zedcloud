@@ -13,7 +13,6 @@ jobs:
       TF_VAR_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
       TF_VAR_DOCKERHUB_IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME }}
       TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
-      TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -45,12 +44,6 @@ jobs:
           out-file-path: './terraform_plugins/'
           extract: true
 
-      - name: Debug 2
-        run: ls -Rlsah ./terraform_plugins/
-
-      - name: Debug 3
-        run: echo "${{ toJSON(github.event) }}"
-
       - name: Setup terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -58,10 +51,21 @@ jobs:
         run: terraform -chdir=./zedcloud_deployment/ init -upgrade -plugin-dir=../terraform_plugins/
 
       - id: tf_plan
-        run: terraform -chdir=./zedcloud_deployment/ plan -no-color
+        run: terraform -chdir=./zedcloud_deployment/ plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
         env:
+          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
-      
+
       - run: echo ${{ steps.tf_plan.outputs.stdout }}
       - run: echo ${{ steps.tf_plan.outputs.stderr }}
       - run: echo ${{ steps.tf_plan.outputs.exitcode }}
+
+      - id: tf_apply
+        run: terraform -chdir=./zedcloud_deployment/ apply -no-color -auto-approve "$./{TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
+        env:
+          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
+          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
+
+      - run: echo ${{ steps.tf_apply.outputs.stdout }}
+      - run: echo ${{ steps.tf_apply.outputs.stderr }}
+      - run: echo ${{ steps.tf_apply.outputs.exitcode }}
