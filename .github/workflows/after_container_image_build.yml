@@ -54,7 +54,7 @@ jobs:
           location: artifact
           github_token: ${{ secrets.GH_TOKEN }}
           encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
-        working-directory: ./zedcloud_deployment/
+          directory: ./zedcloud_deployment/
         continue-on-error: true
 
       - id: tf_init
@@ -79,4 +79,4 @@ jobs:
           location: artifact
           github_token: ${{ secrets.GH_TOKEN }}
           encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
-        working-directory: ./zedcloud_deployment/
+          directory: ./zedcloud_deployment/
