@@ -22,6 +22,8 @@ jobs:
       - name: Debug 1
         run: cat dockerhub_image_latest_tag/dockerhub_image_latest_tag
 
+        # TODO: This is needed only temporary, remove once a new release of
+        # the provider is available from `zededa/terraform-provider/zedcloud`.
       - name: Download a pre-release version of the zedcloud terraform provider
         uses: robinraju/release-downloader@v1
         with:
@@ -31,11 +33,11 @@ jobs:
           tag: 'v0.0.0-dev.fiximageupdate.1'
           fileName: 'terraform-provider*.tar.gz'
           tarBall: true
-          out-file-path: './zedcloud_deployment/terraform_plugins/'
+          out-file-path: './terraform_plugins/'
           extract: true
 
       - name: Debug 2
-        run: ls -Rlsah ./zedcloud_deployment/terraform_plugins/
+        run: ls -Rlsah ./terraform_plugins/
 
       - name: Debug 3
         run: echo "${{ toJSON(github.event) }}"
@@ -47,15 +49,13 @@ jobs:
         run: |
           pwd
           ls -lsah
-          terraform init --upgrade -plugin-dir=./terraform_plugins/
-        working-directory: ./zedcloud_deployment/
+          terraform init --upgrade -plugin-dir=./terraform_plugins/ -chdir=./zedcloud_deployment/
 
       - id: plan
         run: |
           pwd
           ls -lsah
-          terraform plan -no-color
-        working-directory: ./zedcloud_deployment/
+          terraform plan -no-color -chdir=./zedcloud_deployment/
       
       - run: echo ${{ steps.plan.outputs.stdout }}
       - run: echo ${{ steps.plan.outputs.stderr }}
