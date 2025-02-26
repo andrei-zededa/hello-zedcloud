@@ -75,7 +75,7 @@ jobs:
       - name: Upload terraform state
         uses: badgerhobbs/terraform-state@v2
         with:
-          operation: download
+          operation: upload
           location: artifact
           github_token: ${{ secrets.GH_TOKEN }}
           encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
