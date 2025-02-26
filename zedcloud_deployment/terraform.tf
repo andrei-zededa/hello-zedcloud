@@ -3,7 +3,7 @@ terraform {
     zedcloud = {
       # Public terraform provider release: https://registry.terraform.io/providers/zededa/zedcloud/latest/docs
       source  = "localhost/zededa/zedcloud"
-      version = "2.3.99-dev.2"
+      version = "0.0.0-dev.fiximageupdate.1"
     }
   }
 }

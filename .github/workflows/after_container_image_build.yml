@@ -22,6 +22,20 @@ jobs:
       - name: Debug 1
         run: cat dockerhub_image_latest_tag/dockerhub_image_latest_tag
 
-      - name: Debug 2
-        run: echo "${{ toJSON(github.event) }}"
+      - name: Download a pre-release version of the zedcloud terraform provider
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: 'andrei-zededa/terraform-provider-zedcloud'
+          latest: true
+          preRelease: true
+          tag: 'v0.0.0-dev.fiximageupdate.1'
+          fileName: 'terraform-provider*.tar.gz'
+          tarBall: true
+          out-file-path: 'zedcloud_deployment/terraform_plugins/'
+          extract: true
 
+      - name: Debug 2
+        run: ls -Rlsah zedcloud_deployment/terraform_plugins/
+
+      - name: Debug 3
+        run: echo "${{ toJSON(github.event) }}"
