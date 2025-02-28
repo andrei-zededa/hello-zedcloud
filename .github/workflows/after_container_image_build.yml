@@ -62,14 +62,14 @@ jobs:
         run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ init -upgrade -plugin-dir=../../terraform_plugins/
 
       - id: tf_plan
-        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
+        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
       - id: tf_apply
-        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
+        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
