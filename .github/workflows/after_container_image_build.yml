@@ -82,4 +82,4 @@ jobs:
           location: artifact
           github_token: ${{ secrets.GH_TOKEN }}
           encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
-          directory: ./zedcloud_deployment/
+          directory: ./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/
