@@ -1,3 +1,16 @@
+# This creates a project with a network policy and an app policy.
+#
+# For every edge-node that joins this project a network-instance will be
+# created with the simple configuration below (that's basically a Linux
+# bridge + an automatically assigned private IPv4 subnet + DHCP server
+# + iptables NAT configuration).
+#
+# Also for every edge-node the app policy will trigger the creation of
+# an edge-app-instance that runs the references edge-app and which when
+# started will have it's virtual interface connected to the network-instance
+# created on the edge-node as above, this is done through matching the
+# `ni_local_nat = "true"` tag (which as it can be see is actually a key=value
+# pair of strings, not a single freeform string as "tag" would suggest).
 resource "zedcloud_project" "PROJECT_1" {
   name        = var.PROJECT_NAME
   title       = var.PROJECT_NAME

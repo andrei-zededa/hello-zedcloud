@@ -12,7 +12,6 @@ jobs:
     env:
       TF_VAR_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
       TF_VAR_DOCKERHUB_IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME }}
-      TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
 
     steps:
       - name: Checkout repository
@@ -32,6 +31,8 @@ jobs:
 
         # TODO: This is needed only temporary, remove once a new release of
         # the provider is available from `zededa/terraform-provider/zedcloud`.
+        # See also the comment in the terraform configuration file (something
+        # like `terraform.tf` or `providers.tf`.
       - name: Download a pre-release version of the zedcloud terraform provider
         uses: robinraju/release-downloader@v1
         with:
@@ -54,21 +55,23 @@ jobs:
           location: artifact
           github_token: ${{ secrets.GH_TOKEN }}
           encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
-          directory: ./zedcloud_deployment/
+          directory: ./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/
         continue-on-error: true
 
       - id: tf_init
-        run: terraform -chdir=./zedcloud_deployment/ init -upgrade -plugin-dir=../terraform_plugins/
+        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ init -upgrade -plugin-dir=../../terraform_plugins/
 
       - id: tf_plan
-        run: terraform -chdir=./zedcloud_deployment/ plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
+        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
         env:
+          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
       - id: tf_apply
-        run: terraform -chdir=./zedcloud_deployment/ apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
+        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.plan"
         env:
+          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 

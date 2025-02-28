@@ -1,7 +1,26 @@
 locals {
+  # We take the container image tag and trim any leading `v` to use it
+  # for the 2 edge-app version fields. Although this is not strictly
+  # necessary as the 2 edge-app version fields are freeform strings.
   image_version = replace(var.DOCKERHUB_IMAGE_LATEST_TAG, "/^v/", "")
 }
 
+# This defines an edge-app of type container that can be deployed on an
+# edge-node by creating a per-edge-node edge-app-instance. The instance
+# can be created either specifically per-edge-node or it can be created
+# automatically for every edge-node that becomes part of a project with
+# an app policy, as it is done in this example.
+#
+# The edge-app definition uses the container image defined in `images.tf`
+# and also configures the following:
+#   - Resources (no. vCPUs & RAM) that will be allocated to each instance.
+#   - A "custom config" that sets a couple of environment variables
+#     (the end result will be the same as `docker run --env A=B`).
+#   - An interface named `port_forwarding` (that name is for management
+#     purposes only, doesn't actually translate to anything in the
+#     running container). The interface has ACL with portmap edge-node port
+#     8888 to app port 8080, this is similar to running
+#     `docker run -p 8888:8080`.
 resource "zedcloud_application" "hello_zedcloud_app_definition" {
   name  = "${var.DOCKERHUB_IMAGE_NAME}_app_definition"
   title = "${var.DOCKERHUB_IMAGE_NAME}_app_definition"
@@ -106,7 +125,7 @@ resource "zedcloud_application" "hello_zedcloud_app_definition" {
         matches {
           # This is the edge-node port.
           type  = "lport"
-          value = "8080"
+          value = "8888"
         }
         matches {
           # Source address of the traffic.
