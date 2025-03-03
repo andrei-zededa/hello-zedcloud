@@ -54,7 +54,7 @@ jobs:
 
       - name: Download any previous terraform state
         uses: badgerhobbs/terraform-state@v2
-        if: vars.TF_STATE_ZERO != "yes" &&  vars.TF_STATE_ZERO != "true" && vars.TF_STATE_ZERO != true
+        if: ${{ vars.TF_STATE_ZERO != 'yes' && vars.TF_STATE_ZERO != 'true' && vars.TF_STATE_ZERO != true }}
         with:
           operation: download
           location: artifact
