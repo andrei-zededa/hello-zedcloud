@@ -1,0 +1,18 @@
+# The edge-app-instances are created automatically on each edge-node as a
+# result of the project app policy. Since we know that there will be one
+# edge-app-instances per edge-node we use the naming scheme to match them
+# and retrieve their details.
+
+data "zedcloud_application" "hello_zedcloud_app_definition" {
+  name  = "${var.DOCKERHUB_IMAGE_NAME}_app_definition"
+  title = "${var.DOCKERHUB_IMAGE_NAME}_app_definition"
+}
+
+data "zedcloud_application_instance" "APP_INSTANCES" {
+  for_each = local.devices_map
+
+  app_id = data.zedcloud_application.hello_zedcloud_app_definition.id
+  device_id = zedcloud_edgenode.EDGE_NODES[each.value.name].id
+  name = "${data.zedcloud_project.PROJECT_1.name}.${data.zedcloud_application.hello_zedcloud_app_definition.name}.${each.value.name}"
+  title = "Auto deployed instance ${data.zedcloud_project.PROJECT_1.name}.${data.zedcloud_application.hello_zedcloud_app_definition.name}.${each.value.name}"
+}

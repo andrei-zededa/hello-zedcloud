@@ -12,6 +12,10 @@ jobs:
     env:
       TF_VAR_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
       TF_VAR_DOCKERHUB_IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME }}
+      # TF_CONF_DIR: "./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/"
+      # TF_CONF_DIR: "./zedcloud_deployment_examples/edge_app_and_project_with_inst_replace/"
+      TF_CONF_DIR: ${{ vars.TF_CONF_DIR }}
+      TF_STATE_ZERO: ${{ vars.TF_STATE_ZERO }}
 
     steps:
       - name: Checkout repository
@@ -42,7 +46,7 @@ jobs:
           tag: 'v0.0.0-dev.fiximageupdate.1'
           fileName: 'terraform-provider-zedcloud*.tar.gz'
           tarBall: true
-          out-file-path: './terraform_plugins/'
+          out-file-path: './.terraform_plugins/'
           extract: true
 
       - name: Setup terraform
@@ -50,26 +54,44 @@ jobs:
 
       - name: Download any previous terraform state
         uses: badgerhobbs/terraform-state@v2
+        # Case-insensitive match for vars.TF_STATE_ZERO != "yes"/"true".
+        if: >-
+         !contains(fromJSON('["yes", "true", "y"]'), format('{0}', vars.TF_STATE_ZERO).toLowerCase()) &&
+         vars.TF_STATE_ZERO != true
         with:
           operation: download
           location: artifact
           github_token: ${{ secrets.GH_TOKEN }}
           encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
-          directory: ./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/
+          directory: ${{ vars.TF_CONF_DIR }}
         continue-on-error: true
 
       - id: tf_init
-        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ init -upgrade -plugin-dir=../../terraform_plugins/
+        run: terraform -chdir="${TF_CONF_DIR}" init -upgrade -plugin-dir=../../.terraform_plugins/
 
       - id: tf_plan
-        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.tfplan"
+        run: terraform -chdir="${TF_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan" -exclude=zedcloud_network_instance.NET_INSTANCES -exclude=zedcloud_application_instance.APP_INSTANCES
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
       - id: tf_apply
-        run: terraform -chdir=./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/ apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.tfplan"
+        run: terraform -chdir="${TF_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan"
+        env:
+          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
+          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
+          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
+
+      - id: tf_plan
+        run: terraform -chdir="${TF_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
+        env:
+          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
+          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
+          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
+
+      - id: tf_apply
+        run: terraform -chdir="${TF_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
@@ -82,4 +104,4 @@ jobs:
           location: artifact
           github_token: ${{ secrets.GH_TOKEN }}
           encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
-          directory: ./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/
+          directory: ${{ vars.TF_CONF_DIR }}
