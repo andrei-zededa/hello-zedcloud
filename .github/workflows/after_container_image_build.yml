@@ -55,9 +55,7 @@ jobs:
       - name: Download any previous terraform state
         uses: badgerhobbs/terraform-state@v2
         # Case-insensitive match for vars.TF_STATE_ZERO != "yes"/"true".
-        if: >-
-         !contains(fromJSON('["yes", "true", "y"]'), format('{0}', vars.TF_STATE_ZERO).toLowerCase()) &&
-         vars.TF_STATE_ZERO != true
+        if: format('{0}', vars.TF_STATE_ZERO).toLowerCase() != "yes" && format('{0}', vars.TF_STATE_ZERO).toLowerCase() != "true" && vars.TF_STATE_ZERO != true
         with:
           operation: download
           location: artifact
@@ -69,28 +67,28 @@ jobs:
       - id: tf_init
         run: terraform -chdir="${TF_CONF_DIR}" init -upgrade -plugin-dir=../../.terraform_plugins/
 
-      - id: tf_plan
+      - id: tf_plan_1st
         run: terraform -chdir="${TF_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan" -exclude=zedcloud_network_instance.NET_INSTANCES -exclude=zedcloud_application_instance.APP_INSTANCES
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
-      - id: tf_apply
+      - id: tf_apply_1st
         run: terraform -chdir="${TF_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
-      - id: tf_plan
+      - id: tf_plan_2nd
         run: terraform -chdir="${TF_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
-      - id: tf_apply
+      - id: tf_apply_2nd
         run: terraform -chdir="${TF_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
