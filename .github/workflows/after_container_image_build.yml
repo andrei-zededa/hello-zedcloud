@@ -55,7 +55,7 @@ jobs:
       - name: Download any previous terraform state
         uses: badgerhobbs/terraform-state@v2
         # Case-insensitive match for vars.TF_STATE_ZERO != "yes"/"true".
-        if: format('{0}', vars.TF_STATE_ZERO).toLowerCase() != "yes" && format('{0}', vars.TF_STATE_ZERO).toLowerCase() != "true" && vars.TF_STATE_ZERO != true
+        if: !contains(fromJSON('["yes", "YES", "Yes", "true", "TRUE", "True"]'), vars.TF_STATE_ZERO) && vars.TF_STATE_ZERO != true
         with:
           operation: download
           location: artifact
