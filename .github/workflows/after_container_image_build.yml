@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     env:
+      # TF_LOG can be used for troubleshooting purposes, set to `debug` for a lot of output.
+      TF_LOG: debug
       # TF_STATE_ZERO disables if set to `yes` or `true` downloading any previous
       # terraform state file, thus starting the deployment from zero/scratch. The
       # state for this run will still be uploaded which also means that any existing
