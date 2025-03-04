@@ -1,6 +1,16 @@
-name: After container image is pushed to Dockerhub
+name: Deploy to Zedcloud via terraform
 
 on:
+  # Manual trigger with specific container image tag.
+  workflow_dispatch:
+    inputs:
+      manual_container_image_tag:
+        description: 'Set the container image tag to be used'
+        required: true 
+        default: 'latest'
+        type: string
+
+  # Triggered automatically after a container image is built successfully.
   workflow_run:
     workflows: ["Build container image and push to Dockerhub"]
     types: [ "completed" ]
@@ -34,12 +44,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download dockerhub_latest_tag which contains the tag of the container image that was just built
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: dawidd6/action-download-artifact@v8
         with:
           github_token: ${{ secrets.GH_TOKEN }}
           name: dockerhub_image_latest_tag
           path: dockerhub_image_latest_tag
           run_id: ${{ github.event.workflow_run.id }}
+
+      - name: Set the container image tag to the manually set version
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: mkdir -p 'dockerhub_image_latest_tag/' && echo '${{ github.event.inputs.manual_container_image_tag }}' > 'dockerhub_image_latest_tag/dockerhub_image_latest_tag'
 
       - id: dockerhub_image_latest_tag
         name: Retrieve the tag of the container image
