@@ -18,7 +18,7 @@ on:
 jobs:
   do_thing:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     env:
       # TF_LOG can be used for troubleshooting purposes, set to `debug` for a lot of output.
       # TF_LOG: debug
