@@ -1,1 +1,5 @@
 hello-zedcloud
+.terraform_plugins/
+**/.terraform/
+**/terraform.tfstate*
+**/*.tfplan

@@ -1,0 +1,135 @@
+name: Deploy to Zedcloud via terraform
+
+on:
+  # Manual trigger with specific container image tag.
+  workflow_dispatch:
+    inputs:
+      manual_container_image_tag:
+        description: 'Set the container image tag to be used'
+        required: true 
+        default: 'latest'
+        type: string
+
+  # Triggered automatically after a container image is built successfully.
+  workflow_run:
+    workflows: ["Build container image and push to Dockerhub"]
+    types: [ "completed" ]
+
+jobs:
+  do_thing:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    env:
+      # TF_LOG can be used for troubleshooting purposes, set to `debug` for a lot of output.
+      # TF_LOG: debug
+
+      # TF_STATE_ZERO disables if set to `yes` or `true` downloading any previous
+      # terraform state file, thus starting the deployment from zero/scratch. The
+      # state for this run will still be uploaded which also means that any existing
+      # state is overwritten.
+      TF_STATE_ZERO: ${{ vars.TF_STATE_ZERO }}
+
+      TF_CLI_CONFIG_FILE: "./zedcloud_deployment_examples/cli.tfrc"
+
+      # TF_DEPLOYMENT_CONF_DIR
+      #     "./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/"
+      #     "./zedcloud_deployment_examples/edge_app_and_project_with_inst_replace/"
+      TF_DEPLOYMENT_CONF_DIR: ${{ vars.TF_DEPLOYMENT_CONF_DIR }}
+
+      TF_VAR_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+      TF_VAR_DOCKERHUB_IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download dockerhub_latest_tag which contains the tag of the container image that was just built
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          github_token: ${{ secrets.GH_TOKEN }}
+          name: dockerhub_image_latest_tag
+          path: dockerhub_image_latest_tag
+          run_id: ${{ github.event.workflow_run.id }}
+
+      - name: Set the container image tag to the manually set version
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: mkdir -p 'dockerhub_image_latest_tag/' && echo '${{ github.event.inputs.manual_container_image_tag }}' > 'dockerhub_image_latest_tag/dockerhub_image_latest_tag'
+
+      - id: dockerhub_image_latest_tag
+        name: Retrieve the tag of the container image
+        run: echo "DOCKERHUB_IMAGE_LATEST_TAG=$(cat dockerhub_image_latest_tag/dockerhub_image_latest_tag)" >> $GITHUB_OUTPUT
+
+        # TODO: This is needed only temporary, remove once a new release of
+        # the provider is available from `zededa/terraform-provider/zedcloud`.
+        # See also the comment in the terraform configuration file (something
+        # like `terraform.tf` or `providers.tf`.
+      - name: Download a pre-release version of the zedcloud terraform provider
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: 'andrei-zededa/terraform-provider-zedcloud'
+          latest: true
+          preRelease: true
+          tag: 'v0.0.0-dev.fiximageupdate.1'
+          fileName: 'terraform-provider-zedcloud*.tar.gz'
+          tarBall: true
+          out-file-path: './.terraform_plugins/'
+          extract: true
+
+      - name: Setup terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Download any previous terraform state
+        uses: badgerhobbs/terraform-state@v2
+        if: ${{ vars.TF_STATE_ZERO != 'yes' && vars.TF_STATE_ZERO != 'true' && vars.TF_STATE_ZERO != true }}
+        with:
+          operation: download
+          location: artifact
+          github_token: ${{ secrets.GH_TOKEN }}
+          encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
+          directory: ${{ vars.TF_DEPLOYMENT_CONF_DIR }}
+        continue-on-error: true
+
+      - id: tf_init
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" init -upgrade
+
+        # Using `tofu` we can actually exclude, like:
+        #      -exclude=zedcloud_network_instance.NET_INSTANCES -exclude=zedcloud_application_instance.APP_INSTANCES
+        # But with `terraform` exclude is not supported, hence:
+        #      -target=data.restful_resource.EDGE_NODES
+      - id: tf_plan_1st
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan" -target=data.restful_resource.EDGE_NODES
+        env:
+          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
+          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
+          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
+
+      - id: tf_apply_1st
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan"
+        env:
+          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
+          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
+          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
+
+      - id: tf_plan_2nd
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
+        env:
+          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
+          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
+          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
+
+      - id: tf_apply_2nd
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
+        env:
+          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
+          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
+          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
+
+      - name: Upload new terraform state
+        uses: badgerhobbs/terraform-state@v2
+        with:
+          operation: upload
+          location: artifact
+          github_token: ${{ secrets.GH_TOKEN }}
+          encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
+          directory: ${{ vars.TF_DEPLOYMENT_CONF_DIR }}

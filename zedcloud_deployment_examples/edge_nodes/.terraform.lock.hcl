@@ -1,0 +1,1 @@
+../edge_app_and_project_with_app_policy/.terraform.lock.hcl
