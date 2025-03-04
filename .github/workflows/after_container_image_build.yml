@@ -12,7 +12,7 @@ jobs:
     env:
       # TF_LOG can be used for troubleshooting purposes, set to `debug` for a lot of output.
       # TF_LOG: debug
-      
+
       # TF_STATE_ZERO disables if set to `yes` or `true` downloading any previous
       # terraform state file, thus starting the deployment from zero/scratch. The
       # state for this run will still be uploaded which also means that any existing
@@ -78,8 +78,12 @@ jobs:
       - id: tf_init
         run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" init -upgrade
 
+        # Using `tofu` we can actually exclude, like:
+        #      -exclude=zedcloud_network_instance.NET_INSTANCES -exclude=zedcloud_application_instance.APP_INSTANCES
+        # But with `terraform` exclude is not supported, hence:
+        #      -target=data.restful_resource.EDGE_NODES
       - id: tf_plan_1st
-        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan" -exclude=zedcloud_network_instance.NET_INSTANCES -exclude=zedcloud_application_instance.APP_INSTANCES
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan" -target=data.restful_resource.EDGE_NODES
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
