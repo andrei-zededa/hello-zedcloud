@@ -20,7 +20,7 @@ terraform {
 
     restful = {
       source  = "magodo/restful"
-      version = "0.19.0"
+      version = "0.18.1"
     }
 
     null = {

@@ -11,17 +11,21 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     env:
       # TF_LOG can be used for troubleshooting purposes, set to `debug` for a lot of output.
-      TF_LOG: debug
+      # TF_LOG: debug
+      
       # TF_STATE_ZERO disables if set to `yes` or `true` downloading any previous
       # terraform state file, thus starting the deployment from zero/scratch. The
       # state for this run will still be uploaded which also means that any existing
       # state is overwritten.
       TF_STATE_ZERO: ${{ vars.TF_STATE_ZERO }}
+
       TF_CLI_CONFIG_FILE: "./zedcloud_deployment_examples/cli.tfrc"
+
       # TF_DEPLOYMENT_CONF_DIR
       #     "./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/"
       #     "./zedcloud_deployment_examples/edge_app_and_project_with_inst_replace/"
       TF_DEPLOYMENT_CONF_DIR: ${{ vars.TF_DEPLOYMENT_CONF_DIR }}
+
       TF_VAR_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
       TF_VAR_DOCKERHUB_IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME }}
 
