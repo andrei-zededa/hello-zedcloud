@@ -1,0 +1,10 @@
+provider_installation {
+  filesystem_mirror {
+    # This is relative to `-chdir=` if that is set.
+    path    = "../../.terraform_plugins"
+    include = ["localhost/*/*"]
+  }
+  direct {
+    exclude = ["localhost/*/*"]
+  }
+}

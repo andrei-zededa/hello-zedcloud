@@ -10,12 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     env:
+      # TF_STATE_ZERO disables if set to `yes` or `true` downloading any previous
+      # terraform state file, thus starting the deployment from zero/scratch. The
+      # state for this run will still be uploaded which also means that any existing
+      # state is overwritten.
+      TF_STATE_ZERO: ${{ vars.TF_STATE_ZERO }}
+      TF_CLI_CONFIG_FILE: "./zedcloud_deployment_examples/cli.tfrc"
+      # TF_DEPLOYMENT_CONF_DIR
+      #     "./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/"
+      #     "./zedcloud_deployment_examples/edge_app_and_project_with_inst_replace/"
+      TF_DEPLOYMENT_CONF_DIR: ${{ vars.TF_DEPLOYMENT_CONF_DIR }}
       TF_VAR_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
       TF_VAR_DOCKERHUB_IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME }}
-      # TF_CONF_DIR: "./zedcloud_deployment_examples/edge_app_and_project_with_app_policy/"
-      # TF_CONF_DIR: "./zedcloud_deployment_examples/edge_app_and_project_with_inst_replace/"
-      TF_CONF_DIR: ${{ vars.TF_CONF_DIR }}
-      TF_STATE_ZERO: ${{ vars.TF_STATE_ZERO }}
 
     steps:
       - name: Checkout repository
@@ -60,45 +66,45 @@ jobs:
           location: artifact
           github_token: ${{ secrets.GH_TOKEN }}
           encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
-          directory: ${{ vars.TF_CONF_DIR }}
+          directory: ${{ vars.TF_DEPLOYMENT_CONF_DIR }}
         continue-on-error: true
 
       - id: tf_init
-        run: terraform -chdir="${TF_CONF_DIR}" init -upgrade -plugin-dir=../../.terraform_plugins/
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" init -upgrade
 
       - id: tf_plan_1st
-        run: terraform -chdir="${TF_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan" -exclude=zedcloud_network_instance.NET_INSTANCES -exclude=zedcloud_application_instance.APP_INSTANCES
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan" -exclude=zedcloud_network_instance.NET_INSTANCES -exclude=zedcloud_application_instance.APP_INSTANCES
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
       - id: tf_apply_1st
-        run: terraform -chdir="${TF_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan"
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
       - id: tf_plan_2nd
-        run: terraform -chdir="${TF_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
       - id: tf_apply_2nd
-        run: terraform -chdir="${TF_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
-      - name: Upload terraform state
+      - name: Upload new terraform state
         uses: badgerhobbs/terraform-state@v2
         with:
           operation: upload
           location: artifact
           github_token: ${{ secrets.GH_TOKEN }}
           encryption_key: ${{ secrets.TF_STATE_ENCRYPTION_KEY }}
-          directory: ${{ vars.TF_CONF_DIR }}
+          directory: ${{ vars.TF_DEPLOYMENT_CONF_DIR }}
