@@ -12,6 +12,7 @@
             background-size: 100% 100%;
             margin: 0; /* Remove default margin */
         }
+
         .link-container {
             display: flex;
             justify-content: flex-end;
@@ -19,6 +20,7 @@
             margin: 20px; /* Adjust the top margin as needed */
             font-family: 'Cinzel', sans-serif; /* Applying the font */
         }
+
         .bottom-left-container {
             position: fixed;
             bottom: 20px; /* Distance from the bottom */
@@ -28,9 +30,26 @@
             padding: 10px;
             border-radius: 5px;
         }
+
         .bottom-left-container ul {
             padding-left: 20px; /* Add padding to the list */
             margin: 10px 0; /* Margin for the list */
+        }
+
+        .bottom-right-container {
+            position: fixed;
+            bottom: 20px; /* Distance from the bottom */
+            right: 20px; /* Distance from the left */
+            font-family: 'Cinzel', sans-serif;
+            background-color: rgba(255, 255, 255, 0.8); /* Optional: semi-transparent background for readability */
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .subtle-text {
+            font-size: 0.8em;
+            color: #777777;
+            text-align: right;
         }
     </style>
 </head>
@@ -52,5 +71,85 @@
             <li><a href="/_/env">This web server's environment variables</a></li>
         </ul>
     </div>
+
+    <div class="bottom-right-container">
+        <div id="version-container">Application version: loading...</div>
+        <div id="uptime-container">Application uptime: loading...</div>
+	<div class="subtle-text">Updated ~ every 10s</div>
+    </div>
+
+    <script>
+        function extractUptime(text) {
+            const uptimeRegex = /Uptime:\s+([^\s]+)/;
+            const match = text.match(uptimeRegex);
+
+            // Return the captured group (the uptime value) or another string if not found.
+            return match ? match[1] : "???";
+        }
+
+        function fetchAppUptime() {
+            // Display a loading state.
+            const container = document.getElementById('uptime-container');
+            container.innerHTML = 'Application uptime: loading...';
+            // container.className = 'loading';
+
+            // Using a relative URL that's relative to the base URL of the current page.
+            const apiUrl = '/_/stats';
+
+            fetch(apiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    container.innerHTML = 'Application uptime: ' + extractUptime(data);
+                    container.className = '';
+                })
+                .catch(error => {
+                    // Handle any errors.
+                    container.innerHTML = 'Error fetching text: ' + error.message;
+                    container.className = '';
+                });
+        }
+
+        function fetchAppVer() {
+            // Display a loading state.
+            const container = document.getElementById('version-container');
+            container.innerHTML = 'Application version: loading...';
+            // container.className = 'loading';
+
+            // Using a relative URL that's relative to the base URL of the current page.
+            const apiUrl = '/_/version';
+
+            fetch(apiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    // Display the fetched text. It might contain a "Version: " prefix.
+		    const regex = new RegExp(`^Version: `);
+                    container.innerHTML = 'Application version: ' + data.replace(regex, '');
+                    container.className = '';
+                })
+                .catch(error => {
+                    // Handle any errors.
+                    container.innerHTML = 'Error fetching text: ' + error.message;
+                    container.className = '';
+                });
+        }
+
+        // Fetch text when page loads.
+        document.addEventListener('DOMContentLoaded', fetchAppUptime);
+        document.addEventListener('DOMContentLoaded', fetchAppVer);
+
+	// Set up intervals to update application info every 10s.
+	const upIntv = setInterval(fetchAppUptime, 10000);
+	const verIntv = setInterval(fetchAppVer, 10000);
+    </script>
 </body>
 </html>
