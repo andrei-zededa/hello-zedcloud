@@ -1,4 +1,4 @@
-name: Deploy to Zedcloud via terraform
+name: Terraform destroy all the objects previously created in Zedcloud via terraform
 
 on:
   # Manual trigger with specific container image tag.
@@ -9,11 +9,12 @@ on:
         required: true 
         default: 'latest'
         type: string
+      are_you_sure:
+        description: 'Are you sure that you want to destroy ALL previously created Zedcloud objects ? (Answer Yes if sure).'
+        required: true 
+        default: 'No'
+        type: string
 
-  # Triggered automatically after a container image is built successfully.
-  workflow_run:
-    workflows: ["Build container image and push to Dockerhub"]
-    types: [ "completed" ]
 
 jobs:
   do_thing:
@@ -90,33 +91,23 @@ jobs:
       - id: tf_init
         run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" init -upgrade
 
-        # Using `tofu` we can actually exclude, like:
-        #      -exclude=zedcloud_network_instance.NET_INSTANCES -exclude=zedcloud_application_instance.APP_INSTANCES
-        # But with `terraform` exclude is not supported, hence:
-        #      -target=data.restful_resource.EDGE_NODES
+      - id: tf_state_ls
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" state ls
+        env:
+          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
+          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
+          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
+
       - id: tf_plan_1st
-        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan" -target=data.restful_resource.EDGE_NODES -target=data.zedcloud_project.PROJECT_1
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" plan -no-color -destroy -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.destroy.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
           TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
 
       - id: tf_apply_1st
-        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.tfplan"
-        env:
-          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
-          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
-          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
-
-      - id: tf_plan_2nd
-        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" plan -no-color -out="./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
-        env:
-          TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
-          TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
-          TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG: ${{ steps.dockerhub_image_latest_tag.outputs.DOCKERHUB_IMAGE_LATEST_TAG }}
-
-      - id: tf_apply_2nd
-        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" apply -no-color -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.2nd.tfplan"
+        if: ${{ github.event.inputs.are_you_sure == 'Yes' }}
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" apply -no-color -destroy -auto-approve "./${TF_VAR_DOCKERHUB_IMAGE_LATEST_TAG}.1st.destroy.tfplan"
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}
