@@ -92,7 +92,7 @@ jobs:
         run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" init -upgrade
 
       - id: tf_state_ls
-        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" state ls
+        run: terraform -chdir="${TF_DEPLOYMENT_CONF_DIR}" state list
         env:
           TF_VAR_ZEDEDA_CLOUD_URL: ${{ secrets.ZEDEDA_CLOUD_URL }}
           TF_VAR_ZEDEDA_CLOUD_TOKEN: ${{ secrets.ZEDEDA_CLOUD_TOKEN }}

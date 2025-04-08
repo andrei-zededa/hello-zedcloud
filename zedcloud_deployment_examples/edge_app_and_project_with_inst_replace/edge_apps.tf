@@ -19,8 +19,8 @@ locals {
 #   - An interface named `port_forwarding` (that name is for management
 #     purposes only, doesn't actually translate to anything in the
 #     running container). The interface has ACL with portmap edge-node port
-#     8888 to app port 8080, this is similar to running
-#     `docker run -p 8888:8080`.
+#     8080 to app port 8080, this is similar to running
+#     `docker run -p 8080:8080`.
 resource "zedcloud_application" "hello_zedcloud_app_definition" {
   name  = "${var.DOCKERHUB_IMAGE_NAME}_app_definition"
   title = "${var.DOCKERHUB_IMAGE_NAME}_app_definition"
@@ -125,7 +125,7 @@ resource "zedcloud_application" "hello_zedcloud_app_definition" {
         matches {
           # This is the edge-node port.
           type  = "lport"
-          value = "8888"
+          value = "8080"
         }
         matches {
           # Source address of the traffic.
