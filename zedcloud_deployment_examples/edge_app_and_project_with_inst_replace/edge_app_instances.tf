@@ -47,7 +47,7 @@ resource "zedcloud_application_instance" "APP_INSTANCES" {
     ]
   }
 
-  name      = "${zedcloud_project.PROJECT_1.name}__${zedcloud_application.hello_zedcloud_app_definition.name}__${each.value.name}"
+  name      = "${data.zedcloud_project.PROJECT_1.name}__${zedcloud_application.hello_zedcloud_app_definition.name}__${each.value.name}"
   title     = "TF auto-created instance of ${zedcloud_application.hello_zedcloud_app_definition.name} for ${each.value.name}"
   device_id = each.value.id
   app_id    = zedcloud_application.hello_zedcloud_app_definition.id

@@ -39,6 +39,8 @@ jobs:
       TF_VAR_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
       TF_VAR_DOCKERHUB_IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME }}
 
+      TF_VAR_PROJECT_NAME: ${{ vars.ZEDEDA_CLOUD_PROJECT_NAME }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

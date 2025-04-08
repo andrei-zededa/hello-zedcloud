@@ -1,10 +1,10 @@
 data "restful_resource" "EDGE_NODES" {
   id = "/devices/status"
 
-  depends_on = [zedcloud_project.PROJECT_1]
+  depends_on = [data.zedcloud_project.PROJECT_1]
 
   query = {
-    projectName = [zedcloud_project.PROJECT_1.name]
+    projectName = [data.zedcloud_project.PROJECT_1.name]
   }
 }
 

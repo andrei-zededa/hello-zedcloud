@@ -11,10 +11,10 @@
 # created on the edge-node as above, this is done through matching the
 # `ni_local_nat = "true"` tag (which as it can be see is actually a key=value
 # pair of strings, not a single freeform string as "tag" would suggest).
-resource "zedcloud_project" "PROJECT_1" {
+data "zedcloud_project" "PROJECT_1" {
   name        = var.PROJECT_NAME
   title       = var.PROJECT_NAME
-  description = "Project ${var.PROJECT_NAME} created via hello-zedcloud/zedcloud_deployment"
+  description = ""
 
   type = "TAG_TYPE_PROJECT"
   tag_level_settings {
