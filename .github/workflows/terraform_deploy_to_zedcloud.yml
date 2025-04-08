@@ -65,16 +65,11 @@ jobs:
         # See also the comment in the terraform configuration file (something
         # like `terraform.tf` or `providers.tf`.
       - name: Download a pre-release version of the zedcloud terraform provider
-        uses: robinraju/release-downloader@v1
-        with:
-          repository: 'andrei-zededa/terraform-provider-zedcloud'
-          latest: true
-          preRelease: true
-          tag: 'v0.0.0-dev.fiximageupdate.1'
-          fileName: 'terraform-provider-zedcloud*.tar.gz'
-          tarBall: true
-          out-file-path: './.terraform_plugins/'
-          extract: true
+        run: |
+          mkdir -p './.terraform_plugins/'
+          curl -fsSLO 'https://github.com/andrei-zededa/terraform-provider-zedcloud/releases/download/v0.0.0-dev.fiximageupdate.1/terraform-provider-zedcloud_v0.0.0-dev.fiximageupdate.1.tar.gz'
+          tar -xzvf './terraform-provider-zedcloud_v0.0.0-dev.fiximageupdate.1.tar.gz' -C './.terraform_plugins/'
+          rm -v './terraform-provider-zedcloud_v0.0.0-dev.fiximageupdate.1.tar.gz'
 
       - name: Setup terraform
         uses: hashicorp/setup-terraform@v3
