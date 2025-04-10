@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -415,7 +417,7 @@ func uploadHandler(uploadPath string) http.Handler {
 		defer file.Close()
 
 		// Create uploads directory if it doesn't exist.
-		uploadId := quickID(8)
+		uploadId := strings.ReplaceAll(quickID(8), "=", "_")
 		uploadDir := filepath.Join(uploadPath, uploadId)
 		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
 			http.Error(w, "Error creating upload directory", http.StatusInternalServerError)
@@ -425,7 +427,7 @@ func uploadHandler(uploadPath string) http.Handler {
 		// Create a new file. We base64 encode the filename received in the request
 		// to avoid any issues from untrusted user input.
 		dst := filepath.Join(uploadDir,
-			base64.StdEncoding.EncodeToString([]byte(handler.Filename)))
+			strings.ReplaceAll(base64.StdEncoding.EncodeToString([]byte(handler.Filename)), "=", "_"))
 		f, err := os.Create(dst)
 		if err != nil {
 			http.Error(w, "Error creating destination file", http.StatusInternalServerError)
@@ -433,17 +435,25 @@ func uploadHandler(uploadPath string) http.Handler {
 		}
 		defer f.Close()
 
-		// Copy the uploaded file to the destination file.
-		n, err := io.Copy(f, file)
+		// Create a hash writer to calculate SHA256 while copying.
+		hasher := sha256.New()
+		multiWriter := io.MultiWriter(f, hasher)
+
+		// Copy the uploaded file to the destination file and calculate hash simultaneously
+		n, err := io.Copy(multiWriter, file)
 		if err != nil {
 			http.Error(w, "Error writing file", http.StatusInternalServerError)
 			return
 		}
 
+		// Get the SHA256 hash as a hex string.
+		hashSum := hasher.Sum(nil)
+		hashString := hex.EncodeToString(hashSum)
+
 		// Send success response.
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Successfully uploaded file '%s' as '%s' (%d bytes / %s).",
-			handler.Filename, dst, n, humanize.Bytes(uint64(n)))
+		fmt.Fprintf(w, "Successfully uploaded file '%s' as '%s' (%d bytes / %s). SHA256 checksum: %s",
+			handler.Filename, dst, n, humanize.Bytes(uint64(n)), hashString)
 	})
 }
 
@@ -496,7 +506,7 @@ func main() {
 	http.Handle("/_/alloc", loggingMidd(logger, allocMemoryHandler()))
 	http.Handle("/_/stats", loggingMidd(logger, displayStats()))
 	http.Handle("/_/echo", loggingMidd(logger, reqDump()))
-	http.Handle("/_/upload", loggingMidd(logger, uploadHandler("/tmp/hello_zedcloud_uploads")))
+	http.Handle("/_/upload", loggingMidd(logger, uploadHandler(filepath.Join(*staticDir, "_", "uploads"))))
 
 	// Start the server with the specified port.
 	logger.Info("Starting server", "version", version, "address", *listen, "static_dir", *staticDir,
