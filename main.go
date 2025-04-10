@@ -114,6 +114,8 @@ func NewTeeLogHandler(handler slog.Handler) *TeeLogHandler {
 	return &t
 }
 
+const quickIDNotRandom = "000000"
+
 // quickID generate a small string random ID. Although unlikely the call to
 // crypto/rand can fail and it such a case quickID just returns the fixed and
 // obviously not random string of "000000". Since this is only used for logging
@@ -123,20 +125,73 @@ func quickID(length int) string {
 	_, err := rand.Read(bytes)
 	if err != nil {
 		// NOTE: Indeed returing this fixed string is not very useful.
-		return "000000"
+		return quickIDNotRandom
 	}
 	return base64.URLEncoding.EncodeToString(bytes)
 }
 
-// loggingMidd is an HTTP middleware that logs each request.
+// loggingMidd is an HTTP middleware that logs each request and adds the logger and request ID to the context.
 func loggingMidd(logger *slog.Logger, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		id := quickID(6)
-		logger.Info("Request received", "id", id, "method", r.Method, "url", r.URL.Path, "remote_addr", r.RemoteAddr)
-		h.ServeHTTP(w, r)
+
+		// NOTE: he default text log format in Go's slog doesn't display
+		// all structured fields in the same way as the JSON format would.
+		// The id is actually being captured and added to the logger as a
+		// field, but it's not being displayed in the default text output
+		// format. The default text formatter only shows a limited set of
+		// attributes in the log line itself.
+		reqLogger := logger.With("id", id)
+		reqLogger.Info("Request received", "id", id, "method", r.Method, "url", r.URL.Path, "remote_addr", r.RemoteAddr)
+
+		// Add then logger and request ID to the context.
+		ctx := context.WithValue(r.Context(), "logger", reqLogger)
+		ctx = context.WithValue(ctx, "request_id", id)
+
+		// Call the handler with the updated context.
+		h.ServeHTTP(w, r.WithContext(ctx))
+
 		dur := time.Since(start)
-		logger.Info("Request finished", "id", id, "duration", dur)
+		reqLogger.Info("Request finished", "id", id, "duration", dur)
+	})
+}
+
+// basicAuth wraps a handler with HTTP Basic Authentication and logs authentication failures.
+func basicAuth(handler http.Handler, username, password string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get the per-request logger and id.
+		reqLogger, ok := r.Context().Value("logger").(*slog.Logger)
+		if !ok {
+			http.Error(w, "Internal server error: missing logger", http.StatusInternalServerError)
+			return
+		}
+		id, ok := r.Context().Value("request_id").(string)
+		if !ok {
+			http.Error(w, "Internal server error: missing request ID", http.StatusInternalServerError)
+			return
+		}
+
+		user, pass, hasAuth := r.BasicAuth()
+
+		// Check if credentials were provided and are valid.
+		if !hasAuth || user != username || pass != password {
+			// Log the failed authentication attempt
+			if !hasAuth {
+				reqLogger.Warn("Authentication failed", "id", id,
+					"reason", "no credentials provided")
+			} else {
+				reqLogger.Warn("Authentication failed", "id", id,
+					"reason", "invalid usernamer and/or password", "user", user)
+			}
+
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// If we get here, credentials are valid, call the wrapped handler.
+		handler.ServeHTTP(w, r)
 	})
 }
 
@@ -498,15 +553,28 @@ func main() {
 	// Serve static files.
 	http.Handle("/", loggingMidd(logger, fs))
 
+	username := quickID(12)
+	if username == quickIDNotRandom {
+		fmt.Fprintf(os.Stderr, "Failed to generate a random username")
+		os.Exit(1)
+	}
+	password := quickID(24)
+	if password == quickIDNotRandom {
+		fmt.Fprintf(os.Stderr, "Failed to generate a random password")
+		os.Exit(1)
+	}
+	logger.Info("HTTP Basic authentication credentials", "username", username,
+		"password", password)
+
 	// Add HTTP handlers for the custom paths supported by the server.
 	http.Handle("/_/version", loggingMidd(logger, displayVer()))
-	http.Handle("/_/env", loggingMidd(logger, displayEnv()))
-	http.Handle("/_/logs", loggingMidd(logger, displayLogs(t)))
-	http.Handle("/_/crash", loggingMidd(logger, shouldCrash()))
-	http.Handle("/_/alloc", loggingMidd(logger, allocMemoryHandler()))
-	http.Handle("/_/stats", loggingMidd(logger, displayStats()))
+	http.Handle("/_/env", loggingMidd(logger, basicAuth(displayEnv(), username, password)))
+	http.Handle("/_/logs", loggingMidd(logger, basicAuth(displayLogs(t), username, password)))
+	http.Handle("/_/crash", loggingMidd(logger, basicAuth(shouldCrash(), username, password)))
+	http.Handle("/_/alloc", loggingMidd(logger, basicAuth(allocMemoryHandler(), username, password)))
+	http.Handle("/_/stats", loggingMidd(logger, basicAuth(displayStats(), username, password)))
 	http.Handle("/_/echo", loggingMidd(logger, reqDump()))
-	http.Handle("/_/upload", loggingMidd(logger, uploadHandler(filepath.Join(*staticDir, "_", "uploads"))))
+	http.Handle("/_/upload", loggingMidd(logger, basicAuth(uploadHandler(filepath.Join(*staticDir, "_", "uploads")), username, password)))
 
 	// Start the server with the specified port.
 	logger.Info("Starting server", "version", version, "address", *listen, "static_dir", *staticDir,
