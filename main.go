@@ -17,6 +17,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime/metrics"
 	"strconv"
 	"strings"
@@ -130,6 +131,48 @@ func quickID(length int) string {
 	return base64.URLEncoding.EncodeToString(bytes)
 }
 
+// getClientIP extracts the real client IP address from an HTTP request. It checks
+// headers in the following priority order:
+//  1. Fly-Client-IP (used by Fly.io proxy)
+//  2. X-Real-IP (used by Nginx and others)
+//  3. First entry in X-Forwarded-For (common proxy header)
+//  4. Falls back to the RemoteAddr from the request
+func getClientIP(r *http.Request) string {
+	// Check for Fly-Client-IP header (Fly.io specific).
+	if flyClientIP := r.Header.Get("Fly-Client-IP"); flyClientIP != "" {
+		return flyClientIP
+	}
+
+	// Check for X-Real-IP header (commonly set by Nginx and others).
+	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+		return realIP
+	}
+
+	// Check for X-Forwarded-For header (common for proxies).
+	if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+		// X-Forwarded-For might contain multiple IPs (client, proxy1, proxy2, ...),
+		// get the first one which is typically the client IP.
+		ips := strings.Split(forwardedFor, ",")
+		if len(ips) > 0 {
+			// Trim space that might be present after the comma.
+			return strings.TrimSpace(ips[0])
+		}
+	}
+
+	// Fall back to RemoteAddr if no headers are found. RemoteAddr is in
+	// format "IP:port", so strip off the port if present.
+	ip := r.RemoteAddr
+	if idx := strings.LastIndex(ip, ":"); idx != -1 {
+		ip = ip[:idx]
+	}
+
+	// Remove IPv6 brackets if present.
+	ip = strings.TrimPrefix(ip, "[")
+	ip = strings.TrimSuffix(ip, "]")
+
+	return ip
+}
+
 // loggingMidd is an HTTP middleware that logs each request and adds the logger and request ID to the context.
 func loggingMidd(logger *slog.Logger, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +186,8 @@ func loggingMidd(logger *slog.Logger, h http.Handler) http.Handler {
 		// format. The default text formatter only shows a limited set of
 		// attributes in the log line itself.
 		reqLogger := logger.With("id", id)
-		reqLogger.Info("Request received", "id", id, "method", r.Method, "url", r.URL.Path, "remote_addr", r.RemoteAddr)
+		reqLogger.Info("Request received", "id", id, "method", r.Method,
+			"url", r.URL.Path, "client_addr", getClientIP(r))
 
 		// Add then logger and request ID to the context.
 		ctx := context.WithValue(r.Context(), "logger", reqLogger)
@@ -443,6 +487,50 @@ func allocMemory(size uint64, delay time.Duration) {
 	}()
 }
 
+var (
+	// sanitizeRE is a regexp that matches and can be used to remove common
+	// problematic characters in user provided filenames:
+	// - Control characters
+	// - Path separators (/ and \)
+	// - Characters illegal in Windows filenames (< > : " | ? *)
+	// - Other potentially problematic chars ($ & ; = % ' ` ~ ! @ # ^ ( ) [ ] { } + ,)
+	sanitizeRE = regexp.MustCompile(`[\\/:*?"<>|$&;=%'` + "`" + `~!@#^()\[\]{}\+,]`)
+
+	// whitespaceRE matches on all spaces.
+	whitespaceRE = regexp.MustCompile(`\s+`)
+)
+
+// sanitizeFilename removes potentially problematic characters from filenames
+// and ensures the result is safe for filesystem operations.
+func sanitizeFilename(filename string) string {
+	sanitized := sanitizeRE.ReplaceAllString(filename, "_")
+	sanitized = whitespaceRE.ReplaceAllString(sanitized, "_")
+
+	// Remove leading/trailing periods, spaces, underscores.
+	sanitized = strings.Trim(sanitized, "_ .")
+
+	// Handle empty filename
+	if sanitized == "" {
+		return "unnamed_file"
+	}
+
+	// Extract any file extension.
+	ext := ""
+	lastDot := strings.LastIndex(sanitized, ".")
+	if lastDot >= 0 {
+		ext = sanitized[lastDot:]
+		sanitized = sanitized[:lastDot]
+	}
+
+	// Maximum filename length on many filesystems is 255.
+	maxBaseLength := 255 - len(ext)
+	if len(sanitized) > maxBaseLength {
+		sanitized = sanitized[:maxBaseLength]
+	}
+
+	return sanitized + ext
+}
+
 // uploadHandler is an HTTP middleware that accepts a multi-part file upload
 // and saves the uploaded file locally. Not very useful for the file upload
 // itself however it can be used to simulate traffic towards an edge-app instance
@@ -472,17 +560,15 @@ func uploadHandler(uploadPath string) http.Handler {
 		defer file.Close()
 
 		// Create uploads directory if it doesn't exist.
-		uploadId := strings.ReplaceAll(quickID(8), "=", "_")
+		uploadId := strings.ReplaceAll(quickID(12), "=", "_")
 		uploadDir := filepath.Join(uploadPath, uploadId)
 		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
 			http.Error(w, "Error creating upload directory", http.StatusInternalServerError)
 			return
 		}
 
-		// Create a new file. We base64 encode the filename received in the request
-		// to avoid any issues from untrusted user input.
-		dst := filepath.Join(uploadDir,
-			strings.ReplaceAll(base64.StdEncoding.EncodeToString([]byte(handler.Filename)), "=", "_"))
+		// Create a new file.
+		dst := filepath.Join(uploadDir, sanitizeFilename(handler.Filename))
 		f, err := os.Create(dst)
 		if err != nil {
 			http.Error(w, "Error creating destination file", http.StatusInternalServerError)
@@ -572,7 +658,7 @@ func main() {
 	http.Handle("/_/logs", loggingMidd(logger, basicAuth(displayLogs(t), username, password)))
 	http.Handle("/_/crash", loggingMidd(logger, basicAuth(shouldCrash(), username, password)))
 	http.Handle("/_/alloc", loggingMidd(logger, basicAuth(allocMemoryHandler(), username, password)))
-	http.Handle("/_/stats", loggingMidd(logger, basicAuth(displayStats(), username, password)))
+	http.Handle("/_/stats", loggingMidd(logger, displayStats()))
 	http.Handle("/_/echo", loggingMidd(logger, reqDump()))
 	http.Handle("/_/upload", loggingMidd(logger, basicAuth(uploadHandler(filepath.Join(*staticDir, "_", "uploads")), username, password)))
 
