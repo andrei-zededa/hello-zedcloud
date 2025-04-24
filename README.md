@@ -25,7 +25,7 @@ any files in the static directory:
 
   - `/_/crash` - Cause the web server process to exit with an error. The request
                  MUST be an HTTP DELETE, with a query param of `areYouSure` set
-                 to the `YesIAMSure` value. Additionally the exit code can be
+                 to the `YesIAmSure` value. Additionally the exit code can be
                  specified with the `exitCode` query param (by default `77`).
 
   - `/_/alloc` - Cause the server to allocate memory. The `size` query param is
