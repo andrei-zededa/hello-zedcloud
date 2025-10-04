@@ -179,7 +179,7 @@ func loggingMidd(logger *slog.Logger, h http.Handler) http.Handler {
 		start := time.Now()
 		id := quickID(6)
 
-		// NOTE: he default text log format in Go's slog doesn't display
+		// NOTE: the default text log format in Go's slog doesn't display
 		// all structured fields in the same way as the JSON format would.
 		// The id is actually being captured and added to the logger as a
 		// field, but it's not being displayed in the default text output
@@ -531,6 +531,17 @@ func sanitizeFilename(filename string) string {
 	return sanitized + ext
 }
 
+// getEnvOrDefault returns the value of the environment variable if it exists,
+// (including if it exists but set to an empty value), otherwise returns the
+// default value.
+func getEnvOrDefault(envVar, def string) string {
+	if v, ok := os.LookupEnv(envVar); ok {
+		return v
+	}
+
+	return def
+}
+
 // uploadHandler is an HTTP middleware that accepts a multi-part file upload
 // and saves the uploaded file locally. Not very useful for the file upload
 // itself however it can be used to simulate traffic towards an edge-app instance
@@ -560,8 +571,8 @@ func uploadHandler(uploadPath string) http.Handler {
 		defer file.Close()
 
 		// Create uploads directory if it doesn't exist.
-		uploadId := strings.ReplaceAll(quickID(12), "=", "_")
-		uploadDir := filepath.Join(uploadPath, uploadId)
+		uploadID := strings.ReplaceAll(quickID(12), "=", "_")
+		uploadDir := filepath.Join(uploadPath, uploadID)
 		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
 			http.Error(w, "Error creating upload directory", http.StatusInternalServerError)
 			return
@@ -602,10 +613,29 @@ func main() {
 	version = strings.TrimSpace(version)
 	startTime = time.Now()
 
-	// Define the CLI flags for the server listen address and static directory.
-	listen := flag.String("listen", ":8080", "The address (`host:port`) on which the server should listen to. Default: `:8080`.")
-	staticDir := flag.String("static", "./static", "The directory from which to serve static files.")
-	bwLimitStr := flag.String("bw-limit", "2GB", "Limit the read and write bandwidth (each, not combined) of the entire server. Default: 2GB/s.")
+	// Get default values from environment variables (CLI flags will take
+	// precedence).
+	listenDef := getEnvOrDefault("HELLO_LISTEN", ":10080")
+	staticDef := getEnvOrDefault("HELLO_STATIC", "./static")
+	bwLimitDef := getEnvOrDefault("HELLO_BW_LIMIT", "2GB")
+	usernameDef := getEnvOrDefault("HELLO_USERNAME", "$RANDOM")
+	passwordDef := getEnvOrDefault("HELLO_PASSWORD", "$RANDOM")
+
+	// Define the CLI flags for the server.
+	listen := flag.String("listen", listenDef, "The address (`host:port`) on which the server should listen to."+
+		" Can also be set via the HELLO_LISTEN environment variable.")
+	staticDir := flag.String("static", staticDef, "The directory from which to serve static files."+
+		" Can also be set via the HELLO_STATIC environment variable.")
+	bwLimitStr := flag.String("bw-limit", bwLimitDef, "Limit the read and write bandwidth (each, not combined) of the entire server."+
+		" A string like `2m, 2mb, 2M or 2MB all meaning 2 megabytes per second`."+
+		" Can also be set via the HELLO_BW_LIMIT environment variable.")
+	userFlag := flag.String("username", usernameDef, "Username for HTTP basic authentication."+
+		" Default: $RANDOM, meaning that a random username is generated."+
+		" Set to an empty string to disable authentication."+
+		" Can also be set via the HELLO_USERNAME environment variable.")
+	passFlag := flag.String("password", passwordDef, "Password for HTTP basic authentication."+
+		" Default: $RANDOM, meaning that a random password is generated."+
+		" Can also be set via the HELLO_PASSWORD environment variable.")
 	flag.Parse()
 
 	// Setup a listener with a default BW limit of 2GB/s.
@@ -639,28 +669,44 @@ func main() {
 	// Serve static files.
 	http.Handle("/", loggingMidd(logger, fs))
 
-	username := quickID(12)
-	if username == quickIDNotRandom {
-		fmt.Fprintf(os.Stderr, "Failed to generate a random username")
-		os.Exit(1)
-	}
-	password := quickID(24)
-	if password == quickIDNotRandom {
-		fmt.Fprintf(os.Stderr, "Failed to generate a random password")
-		os.Exit(1)
-	}
-	logger.Info("HTTP Basic authentication credentials", "username", username,
-		"password", password)
-
 	// Add HTTP handlers for the custom paths supported by the server.
 	http.Handle("/_/version", loggingMidd(logger, displayVer()))
-	http.Handle("/_/env", loggingMidd(logger, basicAuth(displayEnv(), username, password)))
-	http.Handle("/_/logs", loggingMidd(logger, basicAuth(displayLogs(t), username, password)))
-	http.Handle("/_/crash", loggingMidd(logger, basicAuth(shouldCrash(), username, password)))
-	http.Handle("/_/alloc", loggingMidd(logger, basicAuth(allocMemoryHandler(), username, password)))
 	http.Handle("/_/stats", loggingMidd(logger, displayStats()))
 	http.Handle("/_/echo", loggingMidd(logger, reqDump()))
-	http.Handle("/_/upload", loggingMidd(logger, basicAuth(uploadHandler(filepath.Join(*staticDir, "_", "uploads")), username, password)))
+
+	if len(*userFlag) > 0 {
+		username := *userFlag
+		if strings.EqualFold(username, "$RANDOM") {
+			username = quickID(12)
+			if username == quickIDNotRandom {
+				fmt.Fprintf(os.Stderr, "Failed to generate a random username")
+				os.Exit(1)
+			}
+		}
+		password := *passFlag
+		if strings.EqualFold(password, "$RANDOM") {
+			password = quickID(24)
+			if password == quickIDNotRandom {
+				fmt.Fprintf(os.Stderr, "Failed to generate a random password")
+				os.Exit(1)
+			}
+		}
+
+		logger.Info("HTTP Basic authentication credentials", "username", username,
+			"password", password)
+
+		http.Handle("/_/env", loggingMidd(logger, basicAuth(displayEnv(), username, password)))
+		http.Handle("/_/logs", loggingMidd(logger, basicAuth(displayLogs(t), username, password)))
+		http.Handle("/_/crash", loggingMidd(logger, basicAuth(shouldCrash(), username, password)))
+		http.Handle("/_/alloc", loggingMidd(logger, basicAuth(allocMemoryHandler(), username, password)))
+		http.Handle("/_/upload", loggingMidd(logger, basicAuth(uploadHandler(filepath.Join(*staticDir, "_", "uploads")), username, password)))
+	} else {
+		http.Handle("/_/env", loggingMidd(logger, displayEnv()))
+		http.Handle("/_/logs", loggingMidd(logger, displayLogs(t)))
+		http.Handle("/_/crash", loggingMidd(logger, shouldCrash()))
+		http.Handle("/_/alloc", loggingMidd(logger, allocMemoryHandler()))
+		http.Handle("/_/upload", loggingMidd(logger, uploadHandler(filepath.Join(*staticDir, "_", "uploads"))))
+	}
 
 	// Start the server with the specified port.
 	logger.Info("Starting server", "version", version, "address", *listen, "static_dir", *staticDir,

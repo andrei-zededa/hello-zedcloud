@@ -13,51 +13,96 @@ program written in Go. The reason for this is that we can quickly implement some
 additional features in the web server, to demonstrate various features of ZEDEDA
 Cloud & of EVE-OS.
 
-Currently the web server handles some additional URL paths, apart from serving
-any files in the static directory:
-  - `/_/version` - See the web server version.
+## Features
 
-  - `/_/env` - See the environment variables of the web server process, useful
-               for example in combination with https://help.zededa.com/hc/en-us/articles/18691668817179-How-to-add-environment-variables-to-edge-applications .
+### Static File Serving
 
-  - `/_/logs` - This is useful to be able to see the logs of all the requests
-                received by the web server. The web server also logs on `stdout`.
+The server serves static files (HTML, CSS, JavaScript, images, etc.) from a
+configurable directory (default: `./static`).
 
-  - `/_/crash` - Cause the web server process to exit with an error. The request
-                 MUST be an HTTP DELETE, with a query param of `areYouSure` set
-                 to the `YesIAmSure` value. Additionally the exit code can be
-                 specified with the `exitCode` query param (by default `77`).
+### Special Endpoints
 
-  - `/_/alloc` - Cause the server to allocate memory. The `size` query param is
-                 used to specify how much memory in bytes, suffixes like `KB`,
-                 `MB` and `GB` are supported. This can be used for example to
-                 allocate memory until the OOM decides to kill the server process,
-                 thus simulating an application issue. The server needs to periodically
-                 walk the allocated memory to keep it from being freed by the
-                 garbage collector. The additional query param `delay` can be used
-                 to lower (or increase for a shorter delay) the CPU usage caused
-                 by the periodical walking. `ms`, `s` suffixes are supported, the
-                 default is `200ms`.
+The web server provides several special endpoints under the `/_/` path:
 
-  - `/_/stats` - See some of the Go runtime statistics. This includes CPU time
-                 and allocated memory. NOTE: that these values cannot be directly
-                 compared with the per-process Linux kernel statistics.
+  - **`/_/version`** (GET) - Returns the web server version.
 
-  - `/_/echo`    - Get back a dump of the HTTP request.
+  - **`/_/env`** (GET) - Returns all environment variables of the web server
+    process. Useful for example in combination with https://help.zededa.com/hc/en-us/articles/18691668817179-How-to-add-environment-variables-to-edge-applications.
+    *Requires authentication if enabled.*
 
-  - `/_/upload`  - Accepts a multi-part file upload and saves the uploaded file
-                   locally. Not very useful for the file upload itself however
-                   it can be used to simulate traffic towards an edge-app instance
-                   (similar to if the edge-app instance would do a download).
-                   This would also be subject to any bandwidth limit with which
-                   the server is started.
+  - **`/_/logs`** (GET) - Returns all logs of all previous requests received by
+    the web server. The web server also logs to `stdout`.
+    *Requires authentication if enabled.*
 
-Another additional feature is the `-bw-limit` CLI flag. With it the server can
-be started with a *rough* bandwidth limit that will be applied globally (so
-concurrent requests will all share this bandwidth limit). This can be useful
-to simulate slow network connections, for example when this server is used as
-a local HTTP datastore to serve images to an EVE-OS instance. The default is
-`2GB/s` which should basically mean unlimited in most scenarios.
+  - **`/_/crash`** (DELETE) - Causes the web server process to exit with an error.
+    The request MUST be an HTTP DELETE with a query param `areYouSure=YesIAmSure`.
+    Optionally, specify the exit code with `exitCode` query param (default: `77`).
+    Example: `curl -X DELETE "http://localhost:10080/_/crash?areYouSure=YesIAmSure&exitCode=42"`
+    *Requires authentication if enabled.*
+
+  - **`/_/alloc`** (POST) - Causes the server to allocate memory. The `size` query
+    param specifies how much memory in bytes (supports `KB`, `MB`, `GB` suffixes).
+    This can be used to allocate memory until the OOM killer terminates the process,
+    simulating an application issue. The server periodically walks the allocated
+    memory to prevent garbage collection. The optional `delay` query param controls
+    CPU usage during memory walking (supports `ms`, `s` suffixes, default: `200ms`).
+    Example: `curl -X POST "http://localhost:10080/_/alloc?size=500MB&delay=100ms"`
+    *Requires authentication if enabled.*
+
+  - **`/_/stats`** (GET) - Returns Go runtime statistics including CPU time and
+    allocated memory. NOTE: These values cannot be directly compared with
+    per-process Linux kernel statistics.
+
+  - **`/_/echo`** (ANY) - Returns a complete dump of the HTTP request, including
+    headers and body.
+
+  - **`/_/upload`** (POST) - Accepts a multipart file upload and saves it locally.
+    Files are stored in `<static-dir>/_/uploads/<upload-id>/` with the original
+    filename preserved (after sanitization). The response includes the file path,
+    size, and **SHA256 checksum** of the uploaded file. Not very useful for file
+    upload itself, but can be used to simulate traffic towards an edge-app instance
+    (similar to if the edge-app would download a file). This is subject to any
+    bandwidth limit configured for the server.
+    Example: `curl -X POST -F "file=@myfile.txt" http://localhost:10080/_/upload`
+    *Requires authentication if enabled.*
+
+### HTTP Basic Authentication
+
+The server supports HTTP Basic Authentication for protecting sensitive endpoints.
+Authentication can be configured via CLI flags or environment variables:
+
+- By default, random credentials are generated and displayed at startup
+- Set `--username=""` (empty string) to disable authentication entirely
+- Use `--username=myuser --password=mypass` for custom credentials
+- Use `--username=$RANDOM --password=$RANDOM` to generate random credentials
+
+When authentication is enabled, the following endpoints require credentials:
+`/_/env`, `/_/logs`, `/_/crash`, `/_/alloc`, `/_/upload`
+
+### Bandwidth Limiting
+
+The server can be started with a global bandwidth limit using the `-bw-limit`
+CLI flag. This applies a *rough* bandwidth limit to both read and write operations
+(each independently, not combined). Concurrent requests share this bandwidth limit.
+This is useful to simulate slow network connections, for example when using this
+server as a local HTTP datastore to serve images to an EVE-OS instance.
+
+Supported formats: `2m`, `2mb`, `2M`, `2MB` (all meaning 2 megabytes per second)
+Default: `2GB/s` (effectively unlimited in most scenarios)
+
+### Configuration Options
+
+The server can be configured via CLI flags or environment variables:
+
+| CLI Flag | Environment Variable | Default | Description |
+|----------|---------------------|---------|-------------|
+| `-listen` | `HELLO_LISTEN` | `:10080` | The address (`host:port`) on which the server listens |
+| `-static` | `HELLO_STATIC` | `./static` | The directory from which to serve static files |
+| `-bw-limit` | `HELLO_BW_LIMIT` | `2GB` | Read and write bandwidth limit (e.g., `2m`, `100MB`) |
+| `-username` | `HELLO_USERNAME` | `$RANDOM` | Username for HTTP basic auth (`$RANDOM` = generate random, `""` = disable) |
+| `-password` | `HELLO_PASSWORD` | `$RANDOM` | Password for HTTP basic auth (`$RANDOM` = generate random) |
+
+*Note: CLI flags take precedence over environment variables.*
 
 # The Zedcloud deployment
 
