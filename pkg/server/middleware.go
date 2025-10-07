@@ -9,12 +9,12 @@ import (
 func basicAuth(handler http.Handler, username, password string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get the per-request logger and id.
-		reqLogger, ok := r.Context().Value("logger").(*slog.Logger)
+		reqLogger, ok := r.Context().Value(loggerKey).(*slog.Logger)
 		if !ok {
 			http.Error(w, "Internal server error: missing logger", http.StatusInternalServerError)
 			return
 		}
-		id, ok := r.Context().Value("request_id").(string)
+		id, ok := r.Context().Value(requestIDKey).(string)
 		if !ok {
 			http.Error(w, "Internal server error: missing request ID", http.StatusInternalServerError)
 			return

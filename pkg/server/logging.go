@@ -13,6 +13,15 @@ import (
 	"time"
 )
 
+// Context key types to avoid collisions.
+type loggerKeyType struct{}
+type requestIDKeyType struct{}
+
+var (
+	loggerKey    = loggerKeyType{}
+	requestIDKey = requestIDKeyType{}
+)
+
 // TeeLogHandler will handle logging to 2 different destinations:
 //   - `next` (which is another `slog.Handler`, most likely one configured to write to `stdout`).
 //   - And an in-memory string buffer which can then be written to any `io.Writer` separately.
@@ -165,8 +174,8 @@ func loggingMidd(logger *slog.Logger, h http.Handler) http.Handler {
 			"url", r.URL.Path, "client_addr", getClientIP(r))
 
 		// Add then logger and request ID to the context.
-		ctx := context.WithValue(r.Context(), "logger", reqLogger)
-		ctx = context.WithValue(ctx, "request_id", id)
+		ctx := context.WithValue(r.Context(), loggerKey, reqLogger)
+		ctx = context.WithValue(ctx, requestIDKey, id)
 
 		// Call the handler with the updated context.
 		h.ServeHTTP(w, r.WithContext(ctx))

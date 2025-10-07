@@ -57,8 +57,9 @@ type Server struct {
 
 // New creates a new Server instance with the given configuration.
 func New(config Config) (*Server, error) {
-	// Set default version if not provided.
-	if config.Version == "" {
+	config.Version = strings.TrimSpace(config.Version)
+	if len(config.Version) == 0 {
+		// Set default version if not provided.
 		config.Version = strings.TrimSpace(defaultVersion)
 	}
 

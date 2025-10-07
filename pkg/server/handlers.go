@@ -129,7 +129,7 @@ func reqDump() http.Handler {
 
 		}
 		w.WriteHeader(http.StatusAlreadyReported)
-		fmt.Fprintf(w, "%s", dump)
+		_, _ = fmt.Fprintf(w, "%s", dump)
 		fmt.Printf("%s\n", dump)
 	})
 }
@@ -144,7 +144,7 @@ func displayVer(version string) http.Handler {
 			return
 		}
 
-		fmt.Fprintf(w, "Version: %s\n", version)
+		_, _ = fmt.Fprintf(w, "Version: %s\n", version)
 	})
 }
 
@@ -158,9 +158,9 @@ func displayEnv() http.Handler {
 			return
 		}
 
-		fmt.Fprintln(w, "Environment Variables:")
+		_, _ = fmt.Fprintln(w, "Environment Variables:")
 		for _, v := range os.Environ() {
-			fmt.Fprintf(w, "\t%s\n", v)
+			_, _ = fmt.Fprintf(w, "\t%s\n", v)
 		}
 	})
 }
@@ -178,8 +178,8 @@ func displayStats(startTime time.Time) http.Handler {
 		currTime := time.Now()
 		uptime := currTime.Sub(startTime)
 
-		fmt.Fprintln(w, "Process Go runtime statistics:")
-		fmt.Fprintf(w, "\tUptime: %s (current time: %s, process start time: %s)\n",
+		_, _ = fmt.Fprintln(w, "Process Go runtime statistics:")
+		_, _ = fmt.Fprintf(w, "\tUptime: %s (current time: %s, process start time: %s)\n",
 			uptime.String(), currTime.String(), startTime.String())
 
 		metric := "/sched/gomaxprocs:threads"
@@ -188,7 +188,7 @@ func displayStats(startTime time.Time) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintf(w, "\t%s = %s\n", metric, val)
+		_, _ = fmt.Fprintf(w, "\t%s = %s\n", metric, val)
 
 		metric = "/sched/goroutines:goroutines"
 		val, err = getRuntimeStat(metric)
@@ -196,7 +196,7 @@ func displayStats(startTime time.Time) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintf(w, "\t%s = %s\n", metric, val)
+		_, _ = fmt.Fprintf(w, "\t%s = %s\n", metric, val)
 
 		// percent := (cpu_sec / uptime_sec * goroutines) * 100
 		metric = "/cpu/classes/user:cpu-seconds"
@@ -205,7 +205,7 @@ func displayStats(startTime time.Time) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintf(w, "\t%s = %s\n", metric, val)
+		_, _ = fmt.Fprintf(w, "\t%s = %s\n", metric, val)
 
 		metric = "/memory/classes/total:bytes"
 		val, err = getRuntimeStat(metric)
@@ -213,7 +213,7 @@ func displayStats(startTime time.Time) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintf(w, "\t%s = %s\n", metric, val)
+		_, _ = fmt.Fprintf(w, "\t%s = %s\n", metric, val)
 	})
 }
 
@@ -227,7 +227,7 @@ func displayLogs(logger *TeeLogHandler) http.Handler {
 			return
 		}
 
-		logger.Flush(w)
+		_ = logger.Flush(w)
 	})
 }
 
@@ -337,7 +337,7 @@ func uploadHandler(uploadPath string) http.Handler {
 			http.Error(w, "Error retrieving file from form", http.StatusBadRequest)
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		// Create uploads directory if it doesn't exist.
 		uploadID := strings.ReplaceAll(quickID(12), "=", "_")
@@ -354,7 +354,7 @@ func uploadHandler(uploadPath string) http.Handler {
 			http.Error(w, "Error creating destination file", http.StatusInternalServerError)
 			return
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		// Create a hash writer to calculate SHA256 while copying.
 		hasher := sha256.New()
@@ -373,7 +373,7 @@ func uploadHandler(uploadPath string) http.Handler {
 
 		// Send success response.
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Successfully uploaded file '%s' as '%s' (%d bytes / %s). SHA256 checksum: %s",
+		_, _ = fmt.Fprintf(w, "Successfully uploaded file '%s' as '%s' (%d bytes / %s). SHA256 checksum: %s",
 			handler.Filename, dst, n, humanize.Bytes(uint64(n)), hashString)
 	})
 }
