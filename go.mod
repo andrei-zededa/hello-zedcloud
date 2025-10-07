@@ -1,4 +1,4 @@
-module github.com/andrei-zededa/zededa-cloud-speedrun/hello-zedcloud
+module github.com/andrei-zededa/hello-zedcloud
 
 go 1.22.5
 

@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/andrei-zededa/zededa-cloud-speedrun/hello-zedcloud/pkg/server"
+	"github.com/andrei-zededa/hello-zedcloud/pkg/server"
 )
 
 //go:embed version
