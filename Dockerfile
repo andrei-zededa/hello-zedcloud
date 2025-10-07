@@ -4,6 +4,7 @@ FROM docker.io/golangci/golangci-lint:latest as linter
 WORKDIR /src/hello-zedcloud
 
 COPY go.mod go.sum main.go version ./
+COPY pkg/ ./pkg/
 
 # NOTE: If this stage doesn't produce any files that are then used in the
 # final container image then it will be optimized out (won't be run).
@@ -15,6 +16,7 @@ FROM docker.io/golang:alpine as builder
 WORKDIR /src/hello-zedcloud
 
 COPY go.mod go.sum main.go version ./
+COPY pkg/ ./pkg/
 
 ENV GOTOOLCHAIN=local
 RUN go build -o hello-zedcloud
